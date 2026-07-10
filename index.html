@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DIANIA — Estándares de Impresión</title>
+<title>DIANIA — Estándares de Impresión v6</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -113,7 +113,8 @@
 <script>
 let registrosBD = [];
 
-const PROXY_URL = "https://script.google.com/macros/s/AKfycbz1KowNQEKEP7S6_1RIfZDALYP2MJ_UZ0nZn63XTErsYs6rSMLyeR4LobjMvPbgu7Nh/exec";
+// ⬇️ Pega aquí la URL de tu nuevo GAS proxy (el que apunta a SharePoint)
+const PROXY_URL = "PEGA_AQUI_TU_URL_DE_GAS";
 
 async function cargarDatos() {
   document.getElementById('spinner').style.display = 'block';
@@ -126,12 +127,19 @@ async function cargarDatos() {
       method: 'GET',
       redirect: 'follow'
     });
-    const json = await response.json();
+    const text = await response.text();
+
+    // Detectar si el proxy devolvió HTML en lugar de JSON (error de autorización GAS)
+    if (text.trim().startsWith('<')) {
+      throw new Error('El proxy de Google Apps Script no está autorizado o mal configurado. Ve a script.google.com, ejecuta la función doGet manualmente para autorizar, y vuelve a implementar con acceso "Cualquier usuario".');
+    }
+
+    const json = JSON.parse(text);
 
     if (json.status !== 'ok') throw new Error(json.mensaje || 'Error desconocido');
 
-    // Decodificar base64
-    const binary = atob(json.data);
+    // Decodificar base64 (limpiando saltos de línea que GAS puede incluir)
+    const binary = atob(json.data.replace(/\s/g, ''));
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
