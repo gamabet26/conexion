@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIANIA — Estándares de Impresión</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --azul: #0d18a8;
+    --azul-oscuro: #090f7a;
+    --acento: #4fc3f7;
+    --verde: #69f0ae;
+    --texto-suave: rgba(255,255,255,0.6);
+  }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--azul); color: #fff; min-height: 100vh; }
+
+  #pantallaCarga { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.5rem; padding:2rem; }
+  .logo-zubex { font-size:1rem; font-weight:700; letter-spacing:4px; color:var(--acento); text-transform:uppercase; }
+  .titulo-diania { font-size:clamp(3rem,10vw,5rem); font-weight:300; letter-spacing:8px; }
+  .subtitulo { font-size:0.85rem; letter-spacing:2px; color:var(--texto-suave); text-transform:uppercase; }
+  .divider { width:60px; height:2px; background:var(--acento); margin:0.5rem auto; }
+  .spinner { width:40px; height:40px; border:3px solid rgba(255,255,255,0.2); border-top-color:var(--acento); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .carga-texto { font-size:0.9rem; color:var(--texto-suave); }
+  .carga-error { color:#ff6b6b; font-size:0.85rem; text-align:center; max-width:380px; line-height:1.6; display:none; }
+  .btn-reintentar { background:none; border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:8px; padding:0.5rem 1.2rem; cursor:pointer; font-size:0.85rem; display:none; }
+  .btn-reintentar:hover { background:rgba(255,255,255,0.1); }
+
+  #pantalla1 { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:center; padding:2rem; gap:2rem; }
+  .busqueda-container { width:100%; max-width:480px; display:flex; flex-direction:column; gap:1rem; }
+  .input-grupo { display:flex; gap:0.5rem; }
+  .input-codigo { flex:1; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:10px; padding:0.85rem 1.2rem; color:#fff; font-size:1rem; outline:none; transition:all 0.2s; }
+  .input-codigo::placeholder { color:rgba(255,255,255,0.4); }
+  .input-codigo:focus { border-color:var(--acento); background:rgba(255,255,255,0.15); }
+  .btn-buscar { background:#fff; color:var(--azul); border:none; border-radius:10px; padding:0.85rem 1.5rem; font-size:0.95rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
+  .btn-buscar:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(255,255,255,0.2); }
+  .error-msg { color:#ff6b6b; font-size:0.85rem; text-align:center; min-height:1.2rem; }
+  .datos-info { font-size:0.75rem; color:var(--texto-suave); text-align:center; }
+
+  #pantalla2 { display:none; min-height:100vh; flex-direction:column; }
+  .header2 { background:var(--azul-oscuro); padding:1rem 1.5rem; display:flex; align-items:center; gap:1rem; border-bottom:1px solid rgba(255,255,255,0.1); }
+  .btn-volver { background:none; border:1px solid rgba(255,255,255,0.3); color:#fff; border-radius:8px; padding:0.4rem 0.9rem; cursor:pointer; font-size:0.85rem; }
+  .btn-volver:hover { background:rgba(255,255,255,0.1); }
+  .header-info { flex:1; }
+  .header-codigo { font-size:0.72rem; color:var(--acento); letter-spacing:2px; text-transform:uppercase; }
+  .header-nombre { font-size:1.05rem; font-weight:600; margin-top:0.1rem; }
+  .header-sub { font-size:0.72rem; color:var(--texto-suave); margin-top:0.1rem; }
+  .contenido2 { padding:1.2rem; flex:1; overflow-y:auto; }
+
+  .grid-header { display:grid; grid-template-columns:48px 1fr 1fr; gap:0.5rem; margin-bottom:0.6rem; padding:0 0.25rem; }
+  .grid-header span { font-size:0.68rem; letter-spacing:1.5px; color:var(--texto-suave); text-transform:uppercase; }
+  .unidad-fila { display:grid; grid-template-columns:48px 1fr 1fr; gap:0.5rem; margin-bottom:0.5rem; align-items:start; }
+  .unidad-label { background:rgba(255,255,255,0.08); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:0.78rem; font-weight:700; color:var(--acento); min-height:80px; letter-spacing:1px; }
+  .tarjetas-col { display:flex; flex-direction:column; gap:0.35rem; }
+  .tarjeta { border-radius:8px; padding:0.5rem 0.75rem; font-size:0.82rem; font-weight:500; border-left:3px solid; }
+  .tarjeta-prioritario { background:rgba(13,24,168,0.7); border-left-color:var(--acento); }
+  .tarjeta-alternativo { background:rgba(255,255,255,0.06); border-left-color:rgba(79,195,247,0.35); font-size:0.78rem; color:rgba(255,255,255,0.82); }
+  .tarjeta-vacia { background:rgba(255,255,255,0.03); border-left-color:rgba(255,255,255,0.1); color:var(--texto-suave); font-size:0.72rem; font-style:italic; }
+  .t-label { font-size:0.6rem; color:var(--texto-suave); letter-spacing:1px; text-transform:uppercase; margin-bottom:0.1rem; }
+  .t-valor { font-weight:600; }
+  .estrella { color:#ffd54f; margin-right:2px; font-size:0.65rem; }
+  .sin-datos { text-align:center; color:var(--texto-suave); font-size:0.85rem; padding:3rem; line-height:1.8; }
+</style>
+</head>
+<body>
+
+<div id="pantallaCarga">
+  <div style="text-align:center">
+    <div class="logo-zubex">Zubex</div>
+    <div class="titulo-diania">DIANIA</div>
+    <div class="divider"></div>
+    <div class="subtitulo">Estándares de Impresión</div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem">
+    <div class="spinner" id="spinner"></div>
+    <div class="carga-texto" id="cargaTexto">Cargando base de datos...</div>
+    <div class="carga-error" id="cargaError"></div>
+    <button class="btn-reintentar" id="btnReintentar" onclick="cargarDatos()">Reintentar</button>
+  </div>
+</div>
+
+<div id="pantalla1">
+  <div style="text-align:center">
+    <div class="logo-zubex">Zubex</div>
+    <div class="titulo-diania">DIANIA</div>
+    <div class="divider"></div>
+    <div class="subtitulo">Estándares de Impresión</div>
+  </div>
+  <div class="busqueda-container">
+    <div class="input-grupo">
+      <input type="text" id="inputCodigo" class="input-codigo" placeholder="Ej: CORP-001-102" onkeydown="if(event.key==='Enter') buscar()">
+      <button class="btn-buscar" onclick="buscar()">Buscar</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="datos-info" id="datosInfo"></div>
+  </div>
+</div>
+
+<div id="pantalla2">
+  <div class="header2">
+    <button class="btn-volver" onclick="volver()">← Volver</button>
+    <div class="header-info">
+      <div class="header-codigo" id="headerCodigo"></div>
+      <div class="header-nombre" id="headerNombre"></div>
+      <div class="header-sub" id="headerSub"></div>
+    </div>
+  </div>
+  <div class="contenido2" id="contenido2"></div>
+</div>
+
+<script>
+let registrosBD = [];
+
+const PROXY_URL = "https://script.google.com/macros/s/AKfycbz1KowNQEKEP7S6_1RIfZDALYP2MJ_UZ0nZn63XTErsYs6rSMLyeR4LobjMvPbgu7Nh/exec";
+
+async function cargarDatos() {
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('cargaTexto').textContent = 'Cargando base de datos...';
+  document.getElementById('cargaError').style.display = 'none';
+  document.getElementById('btnReintentar').style.display = 'none';
+
+  try {
+    const response = await fetch(PROXY_URL, {
+      method: 'GET',
+      redirect: 'follow'
+    });
+    const json = await response.json();
+
+    if (json.status !== 'ok') throw new Error(json.mensaje || 'Error desconocido');
+
+    // Decodificar base64
+    const binary = atob(json.data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+    // Leer Excel — usar sheet_to_json con header:1 para no depender de formato tabla
+    const wb = XLSX.read(bytes.buffer, { type: 'array' });
+
+    // Buscar hoja BD
+    const sheetName = wb.SheetNames.find(n => n.toUpperCase() === 'BD') || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+
+    // Leer como array de arrays primero para obtener encabezados
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    if (raw.length < 2) throw new Error('El archivo no tiene datos suficientes');
+
+    // Primera fila con contenido = encabezados
+    let headerRow = 0;
+    for (let i = 0; i < Math.min(5, raw.length); i++) {
+      if (raw[i].some(c => String(c).toUpperCase().includes('COD') || String(c).toUpperCase().includes('FECHA'))) {
+        headerRow = i;
+        break;
+      }
+    }
+
+    const headers = raw[headerRow].map(h => String(h).trim());
+
+    // Convertir a objetos usando los encabezados encontrados
+    registrosBD = [];
+    for (let i = headerRow + 1; i < raw.length; i++) {
+      const row = raw[i];
+      if (row.every(c => c === '' || c === null || c === undefined)) continue;
+      const obj = {};
+      headers.forEach((h, idx) => { obj[h] = row[idx] !== undefined ? row[idx] : ''; });
+      registrosBD.push(obj);
+    }
+
+    document.getElementById('pantallaCarga').style.display = 'none';
+    document.getElementById('pantalla1').style.display = 'flex';
+    document.getElementById('datosInfo').textContent = '✓ ' + registrosBD.length + ' registros cargados';
+
+  } catch(err) {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('cargaTexto').textContent = '';
+    document.getElementById('cargaError').style.display = 'block';
+    document.getElementById('cargaError').textContent = 'Error: ' + err.message;
+    document.getElementById('btnReintentar').style.display = 'block';
+  }
+}
+
+function limpiar(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  if (['#N/A','N/A','0',''].includes(s)) return '';
+  return s;
+}
+
+function buscar() {
+  const codigo = document.getElementById('inputCodigo').value.trim().toUpperCase();
+  if (!codigo) { document.getElementById('errorMsg').textContent = 'Ingresa un código de catálogo.'; return; }
+
+  const primerReg = registrosBD[0];
+  const colCod = Object.keys(primerReg).find(k => {
+    const u = k.toUpperCase();
+    return (u.includes('COD') && u.includes('CAT')) || u === 'CODIGO' || u === 'COD_CATALOGO';
+  }) || 'COD CATALOGO';
+
+  const colNombre = Object.keys(primerReg).find(k => k.toUpperCase().includes('NOMBRE')) || '';
+  const colFecha = Object.keys(primerReg).find(k => k.toUpperCase() === 'FECHA') || 'FECHA';
+
+  const filtrados = registrosBD.filter(r => String(r[colCod] || '').trim().toUpperCase() === codigo);
+
+  if (!filtrados.length) {
+    document.getElementById('errorMsg').textContent = 'No se encontró "' + codigo + '". Verifica el código.';
+    return;
+  }
+
+  document.getElementById('errorMsg').textContent = '';
+
+  const nombre = colNombre ? limpiar(filtrados[0][colNombre]) : '';
+  const ultimaFecha = limpiar(filtrados[filtrados.length - 1][colFecha]);
+
+  document.getElementById('headerCodigo').textContent = codigo;
+  document.getElementById('headerNombre').textContent = nombre || '—';
+  document.getElementById('headerSub').textContent = filtrados.length + ' registros' + (ultimaFecha ? ' · Última corrida: ' + ultimaFecha : '');
+
+  const unidades = ['U1','U2','U3','U4','U5','U6','U7','U8','U9'];
+  let hayDatos = false;
+
+  let html = `<div class="grid-header">
+    <span>Unidad</span>
+    <span>🎨 Color</span>
+    <span>⚙️ Anilox</span>
+  </div>`;
+
+  unidades.forEach(u => {
+    const num = u.replace('U','');
+    const colColor = 'COLOR U' + num;
+    const colAnilox = 'ANILOX U' + num;
+
+    const conDatos = filtrados.filter(r => limpiar(r[colColor]) || limpiar(r[colAnilox]));
+    if (!conDatos.length) return;
+
+    hayDatos = true;
+
+    const ultimo = conDatos[conDatos.length - 1];
+    const colorPrio = limpiar(ultimo[colColor]);
+    const aniloxPrio = limpiar(ultimo[colAnilox]);
+
+    const freqColor = {};
+    const freqAnilox = {};
+    conDatos.forEach(r => {
+      const c = limpiar(r[colColor]);
+      const a = limpiar(r[colAnilox]);
+      if (c) freqColor[c] = (freqColor[c] || 0) + 1;
+      if (a) freqAnilox[a] = (freqAnilox[a] || 0) + 1;
+    });
+
+    const topColor = Object.entries(freqColor).sort((a,b) => b[1]-a[1]);
+    const topAnilox = Object.entries(freqAnilox).sort((a,b) => b[1]-a[1]);
+
+    let colorAlt = '';
+    for (const [val] of topColor) { if (val !== colorPrio) { colorAlt = val; break; } }
+    if (!colorAlt && topColor.length > 1) colorAlt = topColor[1][0];
+
+    let aniloxAlt = '';
+    for (const [val] of topAnilox) { if (val !== aniloxPrio) { aniloxAlt = val; break; } }
+    if (!aniloxAlt && topAnilox.length > 1) aniloxAlt = topAnilox[1][0];
+
+    html += `<div class="unidad-fila">
+      <div class="unidad-label">${u}</div>
+      <div class="tarjetas-col">
+        ${colorPrio
+          ? `<div class="tarjeta tarjeta-prioritario"><div class="t-label">Última corrida</div><div class="t-valor">${colorPrio}</div></div>`
+          : `<div class="tarjeta tarjeta-vacia">Sin datos</div>`}
+        ${colorAlt
+          ? `<div class="tarjeta tarjeta-alternativo"><div class="t-label"><span class="estrella">★</span>Más frecuente</div><div class="t-valor">${colorAlt}</div></div>`
+          : ''}
+      </div>
+      <div class="tarjetas-col">
+        ${aniloxPrio
+          ? `<div class="tarjeta tarjeta-prioritario"><div class="t-label">Última corrida</div><div class="t-valor">${aniloxPrio}</div></div>`
+          : `<div class="tarjeta tarjeta-vacia">Sin datos</div>`}
+        ${aniloxAlt
+          ? `<div class="tarjeta tarjeta-alternativo"><div class="t-label"><span class="estrella">★</span>Más frecuente</div><div class="t-valor">${aniloxAlt}</div></div>`
+          : ''}
+      </div>
+    </div>`;
+  });
+
+  if (!hayDatos) {
+    html += `<div class="sin-datos">No hay datos de colores o anilox para este código aún.<br>Se completará conforme se registren más reportes.</div>`;
+  }
+
+  document.getElementById('contenido2').innerHTML = html;
+  document.getElementById('pantalla1').style.display = 'none';
+  document.getElementById('pantalla2').style.display = 'flex';
+}
+
+function volver() {
+  document.getElementById('pantalla1').style.display = 'flex';
+  document.getElementById('pantalla2').style.display = 'none';
+  document.getElementById('inputCodigo').value = '';
+}
+
+cargarDatos();
+</script>
+</body>
+</html>
